@@ -4,15 +4,20 @@
 <head>
     <meta charset="UTF-8">
     <title>Nostr Widget</title>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
 
 <body>
-    <h2>Nostr Post Widget</h2>
+    <header class="bg-gradient-to-r from-blue-500 to-purple-600 text-white py-12 text-center">
+        <h1 class="text-4xl md:text-6xl font-bold">Nostr Post Widget</h1>
+        <p class="text-lg md:text-xl mt-4">Stay updated with the latest posts</p>
+    </header>
     <!-- Add the widget to your page -->
-    <nostr-widget npub="npub1ukw4ck0vwlnfv7ntpmchs49kgz37st9pdqfxfqc3q93jkt4xvj4q3w30l2" relay="wss://relay.damus.io"></nostr-widget>
+    <nostr-widget npub="npub1ukw4ck0vwlnfv7ntpmchs49kgz37st9pdqfxfqc3q93jkt4xvj4q3w30l2"
+        relay="wss://relay.damus.io"></nostr-widget>
 
     <!-- Widget Script -->
-     <!-- Include nostr-tools library -->
+    <!-- Include nostr-tools library -->
     <script src="https://unpkg.com/nostr-tools/lib/nostr.bundle.js"></script>
     <script>
         class NostrWidget extends HTMLElement {
@@ -20,25 +25,13 @@
                 super();
                 this.attachShadow({ mode: 'open' });
                 this.shadowRoot.innerHTML = `
-                    <style>
-                        pre {
-                            background: #f4f4f4;
-                            padding: 10px;
-                            border: 1px solid #ddd;
-                            border-radius: 5px;
-                            font-family: monospace;
-                            white-space: pre-wrap;
-                        }
-                        .message {
-                            margin-bottom: 10px;
-                            padding: 10px;
-                            border: 1px solid #ddd;
-                            border-radius: 5px;
-                            background: #fff;
-                        }
-                    </style>
-                    <h3>Latest posts:</h3>
-                    <pre id="output">Connecting...</pre>
+                <style>
+                    @import "https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css";
+                </style>
+                <div class="p-4 bg-gray-100 rounded-lg shadow-md">
+                    <h3 class="text-lg font-semibold mb-4">Latest posts:</h3>
+                    <pre id="output" class="p-4 bg-gray-200 rounded-md text-sm font-mono whitespace-pre-wrap">Connecting...</pre>
+                </div>
                 `;
             }
 
@@ -92,7 +85,7 @@
                             const createdAt = new Date(event.created_at * 1000).toLocaleString();
 
                             const messageElement = document.createElement("div");
-                            messageElement.className = "message";
+                            messageElement.className = "message p-4 mb-4 bg-white border border-gray-300 rounded-md shadow-sm";
                             messageElement.textContent = `Message:\n\n${content}\n\nCreated at: ${createdAt}`;
                             output.appendChild(messageElement);
                         } else if (arr[0] === "EOSE") {
@@ -118,7 +111,7 @@
         customElements.define('nostr-widget', NostrWidget);
     </script>
 
-    
+
 </body>
 
 </html>
