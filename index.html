@@ -1,117 +1,148 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <title>Nostr Widget</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mike's Nostr Posts</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
+<body class="bg-gray-100 text-gray-900">
+  <header class="bg-gradient-to-r from-blue-500 to-purple-600 text-white py-8 text-center shadow">
+    <h1 class="text-2xl sm:text-4xl font-bold">Mike's Nostr Posts</h1>
+  </header>
 
-<body>
-    <header class="bg-gradient-to-r from-blue-500 to-purple-600 text-white py-12 text-center">
-        <h1 class="text-4xl md:text-6xl font-bold">Nostr Post Widget</h1>
-        <p class="text-lg md:text-xl mt-4">Stay updated with the latest posts</p>
-    </header>
-    <!-- Add the widget to your page -->
-    <nostr-widget npub="npub1ukw4ck0vwlnfv7ntpmchs49kgz37st9pdqfxfqc3q93jkt4xvj4q3w30l2"
-        relay="wss://nos.lol"></nostr-widget>
+  <main class="w-full max-w-3xl mx-auto mt-6 sm:mt-10 px-4 sm:px-6 lg:px-8">
+    <div class="bg-white p-4 sm:p-6 rounded-lg shadow-md">
+      <h2 class="text-xl sm:text-2xl font-semibold mb-4">Posts:</h2>
+      <div id="nostr-output" class="space-y-4 text-sm font-mono overflow-x-auto">
+        <p id="connecting-msg">Connecting to relays...</p>
+      </div>
+      <div class="mt-6 text-center">
+        <button id="load-more"
+          class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded w-full sm:w-auto">
+          Load More
+        </button>
+      </div>
+    </div>
+  </main>
 
-    <!-- Widget Script -->
-    <!-- Include nostr-tools library -->
-    <script src="https://unpkg.com/nostr-tools/lib/nostr.bundle.js"></script>
-    <script>
-        class NostrWidget extends HTMLElement {
-            constructor() {
-                super();
-                this.attachShadow({ mode: 'open' });
-                this.shadowRoot.innerHTML = `
-                <style>
-                    @import "https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css";
-                </style>
-                <div class="p-4 bg-gray-100 rounded-lg shadow-md">
-                    <h3 class="text-lg font-semibold mb-4">Latest posts:</h3>
-                    <pre id="output" class="p-4 bg-gray-200 rounded-md text-sm font-mono whitespace-pre-wrap">Connecting...</pre>
-                </div>
-                `;
+  <script type="module">
+    import { nip19 } from "https://esm.sh/nostr-tools";
+
+    const npub = "npub1ukw4ck0vwlnfv7ntpmchs49kgz37st9pdqfxfqc3q93jkt4xvj4q3w30l2";
+    const relays = ["wss://nos.lol", "wss://relay.nostr.band"];
+    const output = document.getElementById("nostr-output");
+    const loadMoreBtn = document.getElementById("load-more");
+    const connectingMsg = document.getElementById("connecting-msg");
+    const seenEventIds = new Set();
+    let untilTimestamp = Math.floor(Date.now() / 1000);
+    const limit = 10;
+
+    const decoded = nip19.decode(npub);
+    const pubkeyHex = decoded.data;
+
+    let profile = null;
+
+    function shortenNpub(npub) {
+      return npub.slice(0, 12) + "...";
+    }
+
+    function getAvatarURL(pubkey) {
+      return profile?.picture || `https://robohash.org/${pubkey}.png`;
+    }
+
+    function getDisplayName(pubkey, npub) {
+      return profile?.nip05 || profile?.name || shortenNpub(npub);
+    }
+
+    function fetchProfile() {
+      return new Promise((resolve) => {
+        const socket = new WebSocket(relays[0]);
+        socket.onopen = () => {
+          const subId = "profile-" + Math.random().toString(36).slice(2);
+          const req = ["REQ", subId, { kinds: [0], authors: [pubkeyHex], limit: 1 }];
+          socket.send(JSON.stringify(req));
+        };
+        socket.onmessage = (msg) => {
+          const arr = JSON.parse(msg.data);
+          if (arr[0] === "EVENT" && arr[2]?.kind === 0) {
+            try {
+              profile = JSON.parse(arr[2].content);
+            } catch (e) {
+              console.warn("Failed to parse profile", e);
             }
+            socket.close();
+            resolve();
+          }
+        };
+      });
+    }
 
-            connectedCallback() {
-                const npub = this.getAttribute('npub');
-                const relayUrl = this.getAttribute('relay');
-                const output = this.shadowRoot.getElementById('output');
+    function renderEvent(event, npub, pubkey) {
+      const avatar = getAvatarURL(pubkey);
+      const name = getDisplayName(pubkey, npub);
+      const createdAt = new Date(event.created_at * 1000).toLocaleString();
 
-                try {
-                    if (!window.NostrTools) {
-                        output.textContent = "Failed to load nostr-tools library.";
-                        throw new Error("nostrTools is undefined");
-                    }
+      const div = document.createElement("div");
+      div.className = "bg-gray-50 border border-gray-200 rounded p-4 shadow";
+      div.innerHTML = `
+        <div class="flex items-start space-x-4">
+          <img src="${avatar}" alt="Avatar" class="w-12 h-12 rounded-full object-cover"
+            onerror="this.src='https://placekitten.com/100/100';" />
+          <div class="flex-1 overflow-hidden">
+            <div class="font-semibold text-gray-800 text-sm mb-1">👤 ${name}</div>
+            <div class="whitespace-pre-wrap break-words break-all mb-2 text-sm text-gray-700">${event.content}</div>
+            <div class="text-xs text-gray-500">🕒 ${createdAt}</div>
+          </div>
+        </div>
+      `;
+      output.appendChild(div);
+    }
 
-                    const { nip19 } = window.NostrTools;
-                    const decoded = nip19.decode(npub);
-                    if (decoded.type !== "npub") {
-                        throw new Error("Invalid npub format");
-                    }
+    function loadEvents() {
+      for (const relayUrl of relays) {
+        const socket = new WebSocket(relayUrl);
 
-                    const pubkeyHex = decoded.data;
-                    const socket = new WebSocket(relayUrl);
-
-                    socket.onopen = () => {
-                        const subId = crypto.randomUUID();
-                        const now = Math.floor(Date.now() / 1000);
-
-                        const req = [
-                            "REQ", subId,
-                            {
-                                kinds: [1], // text_note
-                                authors: [pubkeyHex],
-                                limit: 5,
-                                until: now
-                            }
-                        ];
-
-                        socket.send(JSON.stringify(req));
-                    };
-
-                    socket.onmessage = (msg) => {
-                        const arr = JSON.parse(msg.data);
-                        if (arr[0] === "EVENT") {
-                            // Clear "Connecting..." text on the first message
-                            if (output.textContent === "Connecting...") {
-                                output.textContent = "";
-                            }
-
-                            const event = arr[2];
-                            const content = event.content;
-                            const createdAt = new Date(event.created_at * 1000).toLocaleString();
-
-                            const messageElement = document.createElement("div");
-                            messageElement.className = "message p-4 mb-4 bg-white border border-gray-300 rounded-md shadow-sm";
-                            messageElement.textContent = `Message:\n\n${content}\n\nCreated at: ${createdAt}`;
-                            output.appendChild(messageElement);
-                        } else if (arr[0] === "EOSE") {
-                            console.log("End of stream");
-                        }
-                    };
-
-                    socket.onerror = (err) => {
-                        output.textContent = "WebSocket error";
-                        console.error("WebSocket error:", err);
-                    };
-
-                    socket.onclose = () => {
-                        console.log("Connection closed");
-                    };
-
-                } catch (e) {
-                    output.textContent = "Error decoding npub: " + e.message;
-                }
+        socket.onopen = () => {
+          const subId = 'sub-' + Math.random().toString(36).slice(2);
+          const req = [
+            "REQ", subId,
+            {
+              kinds: [1],
+              authors: [pubkeyHex],
+              until: untilTimestamp,
+              limit: limit
             }
-        }
+          ];
+          socket.send(JSON.stringify(req));
+        };
 
-        customElements.define('nostr-widget', NostrWidget);
-    </script>
+        socket.onmessage = (msg) => {
+          const arr = JSON.parse(msg.data);
+          if (arr[0] === "EVENT") {
+            const event = arr[2];
+            if (seenEventIds.has(event.id)) return;
+            seenEventIds.add(event.id);
+            if (connectingMsg) connectingMsg.remove();
 
+            const npubStr = nip19.npubEncode(event.pubkey);
+            renderEvent(event, npubStr, event.pubkey);
+            untilTimestamp = Math.min(untilTimestamp, event.created_at);
+          } else if (arr[0] === "EOSE") {
+            socket.close();
+          }
+        };
 
+        socket.onerror = (err) => {
+          console.error(`❌ WebSocket error [${relayUrl}]:`, err);
+        };
+      }
+    }
+
+    loadMoreBtn.addEventListener("click", () => loadEvents());
+
+    await fetchProfile();
+    loadEvents(); // 初回読み込み
+  </script>
 </body>
-
 </html>
