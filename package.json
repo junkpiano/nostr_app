@@ -1,0 +1,14 @@
+{
+    "name": "nostr-spa",
+    "version": "1.0.0",
+    "description": "Simple Nostr SPA with Express",
+    "main": "server.js",
+    "type": "module",
+    "scripts": {
+      "start": "node server.js"
+    },
+    "dependencies": {
+      "express": "^4.19.2"
+    }
+  }
+  

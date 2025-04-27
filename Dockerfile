@@ -1,11 +1,18 @@
-# Use official Nginx image
-FROM nginx:stable-alpine
+# Use a lightweight Node.js image
+FROM node:20-slim
 
-# Remove default nginx static files
-RUN rm -rf /usr/share/nginx/html/*
+# Create app directory
+WORKDIR /app
 
-# Copy custom HTML into the container
-COPY index.html /usr/share/nginx/html/
+# Install app dependencies
+COPY package.json ./
+RUN npm install
 
-# Expose the port
-EXPOSE 80
+# Copy the app source
+COPY . .
+
+# Expose port
+EXPOSE 3000
+
+# Start the app
+CMD ["npm", "start"]
