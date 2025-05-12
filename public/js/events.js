@@ -90,7 +90,13 @@ export function renderEvent(event, profile, npub, pubkey, output) {
 
     const contentWithLinks = event.content.replace(
         /(https?:\/\/[^\s]+)/g,
-        (url) => `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-500 underline">${url}</a>`
+        (url) => {
+            if (url.match(/\.(jpeg|jpg|gif|png|webp|svg)$/i)) {
+                return `<img src="${url}" alt="Image" class="my-2 max-w-full rounded shadow" loading="lazy" />`;
+            } else {
+                return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-500 underline">${url}</a>`;
+            }
+        }
     );
 
     const div = document.createElement("div");
